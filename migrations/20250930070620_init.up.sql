@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS  answers(
 
 CREATE TABLE  IF NOT EXISTS users(
     id SERIAL PRIMARY KEY,
-    chat_id VARCHAR(50) NOT NULL,
+    chat_id INT NOT NULL,
     nickname VARCHAR,
     created_at TIMESTAMP DEFAULT now()
 );
