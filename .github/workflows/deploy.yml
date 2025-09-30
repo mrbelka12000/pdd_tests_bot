@@ -46,6 +46,7 @@ jobs:
           chmod 600 ~/.ssh/id_rsa.pub
       - name: copy builds to server
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.USER_IP }} "docker service update --force --image ghcr.io/mrbelka12000/pdd_tests_bot:latest pdd_tests_bot_service"
+          ssh -o StrictHostKeyChecking=no ${{ secrets.USER_IP }} "docker compose -f /opt/my_services/pdd_tests_bot/docker-compose.yml pull && docker compose -f /opt/my_services/pdd_tests_bot/docker-compose.yml up --force-recreate --build -d"
+
 
   
