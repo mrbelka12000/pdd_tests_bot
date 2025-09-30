@@ -47,3 +47,5 @@ jobs:
       - name: copy builds to server
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.USER_IP }} "docker service update --force --image ghcr.io/mrbelka12000/pdd_tests_bot:latest pdd_tests_bot_service"
+
+  
