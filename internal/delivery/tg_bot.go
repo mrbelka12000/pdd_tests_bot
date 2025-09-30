@@ -187,7 +187,7 @@ func (h *Handler) sendQuizzes() {
 			)
 
 			for i, ans := range cs.Answers {
-				response.WriteString(fmt.Sprintf("%s: %s\n", numbers[i], ans.Answer))
+				response.WriteString(fmt.Sprintf("%s: %s\n", numbers[i], formatAnswer(ans.Answer)))
 				button = append(button, tgbotapi.InlineKeyboardButton{
 					Text: fmt.Sprintf("Choose %s", numbers[i]),
 					CallbackData: pointer.Of(marshalCallbackData(CallbackData{
@@ -249,4 +249,8 @@ func marshalCallbackData(cb CallbackData) string {
 func unmarshalCallbackData(data string) (cb CallbackData, err error) {
 	err = json.Unmarshal([]byte(data), &cb)
 	return
+}
+
+func formatAnswer(ans string) string {
+	return strings.Replace(ans, "*", "", -1)
 }
