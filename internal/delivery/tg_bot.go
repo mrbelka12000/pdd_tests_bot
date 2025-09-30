@@ -220,6 +220,9 @@ func (h *Handler) sendQuizzes() {
 				if err := os.Remove(filename); err != nil {
 					h.log.With("error", err).Error("remove file")
 				}
+			} else {
+				msgToSend := tgbotapi.NewMessage(user.ChatID, cs.Question)
+				h.handleSendMessageError(h.bot.Send(msgToSend))
 			}
 
 			messageToSend := tgbotapi.NewMessage(user.ChatID, response.String())
