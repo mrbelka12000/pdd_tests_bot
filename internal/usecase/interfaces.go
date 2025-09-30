@@ -12,10 +12,10 @@ import (
 
 type (
 	userRepository interface {
-		CreateUser(db *gorm.DB, user models.User) error
+		Save(db *gorm.DB, user models.User) error
 		GetUserByID(db *gorm.DB, id int64) (*models.User, error)
 		GetAllUsers(db *gorm.DB) ([]models.User, error)
-		GetUserByChatID(db *gorm.DB, chatID string) (*models.User, error)
+		GetUserByChatID(db *gorm.DB, chatID int64) (models.User, error)
 		UpdateUser(db *gorm.DB, user models.User) error
 		DeleteUser(db *gorm.DB, id int64) error
 	}

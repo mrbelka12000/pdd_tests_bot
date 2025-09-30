@@ -48,7 +48,7 @@ func (uc *UseCase) DownloadFile(fileName string) (string, error) {
 	}
 
 	for _, f := range dir {
-		if strings.Contains(f.Name(), fileName[:5]) {
+		if strings.Contains(f.Name(), fileName[:4]) {
 			return filepath.Join(extractedDir, f.Name()), nil
 		}
 	}

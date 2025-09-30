@@ -13,8 +13,8 @@ func NewUserRepo() *UserRepo {
 	return &UserRepo{}
 }
 
-func (u UserRepo) CreateUser(db *gorm.DB, user models.User) error {
-	return db.Create(&user).Error
+func (u UserRepo) Save(db *gorm.DB, user models.User) error {
+	return db.Save(&user).Error
 }
 
 func (u UserRepo) GetUserByID(db *gorm.DB, id int64) (*models.User, error) {
@@ -35,17 +35,17 @@ func (u UserRepo) GetAllUsers(db *gorm.DB) ([]models.User, error) {
 	return users, nil
 }
 
-func (u UserRepo) GetUserByChatID(db *gorm.DB, chatID string) (*models.User, error) {
+func (u UserRepo) GetUserByChatID(db *gorm.DB, chatID int64) (models.User, error) {
 	var user models.User
 	err := db.Where("chat_id = ?", chatID).First(&user).Error
 	if err != nil {
-		return nil, err
+		return models.User{}, err
 	}
-	return &user, nil
+	return user, nil
 }
 
 func (u UserRepo) UpdateUser(db *gorm.DB, user models.User) error {
-	return db.Save(user).Error
+	return db.Updates(user).Error
 }
 
 func (u UserRepo) DeleteUser(db *gorm.DB, id int64) error {

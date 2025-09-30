@@ -77,20 +77,16 @@ func (h *Handler) handleUpdate() {
 		switch msg.Command() {
 		case "start":
 
-			user := models.User{
-				ChatID:    msg.Chat.ID,
-				Nickname:  msg.From.UserName,
-				CreatedAt: time.Now(),
-			}
+			msgToSend := tgbotapi.NewMessage(msg.Chat.ID, "Как часто хотите получать тесты ?")
+			msgToSend.ReplyMarkup = h.getNotifyInterval()
 
-			if err := h.uc.CreateUser(user); err != nil {
-				h.handleSendMessageError(h.bot.Send(tgbotapi.NewMessage(
-					update.Message.Chat.ID, "something went wrong")),
-				)
-				h.log.With("error", err).Error("create user")
+			sentMsg, err := h.bot.Send(msgToSend)
+			if err != nil {
+				h.handleSendMessageError(h.bot.Send(tgbotapi.NewMessage(msg.Chat.ID, "Ошибка")))
 				continue
 			}
 
+			h.cache.Set(fmt.Sprint(msg.Chat.ID), sentMsg.MessageID, 5*time.Minute)
 		}
 	}
 }
@@ -105,16 +101,50 @@ func (h *Handler) handleCallbacks(cb *tgbotapi.CallbackQuery) {
 		return
 	}
 
-	cs, err := h.uc.GetCase(cbData.CaseID)
-	if err != nil {
-		h.log.With("error", err).Error("get case")
-		return
-	}
+	switch {
+	case cbData.Inter != nil:
+		interval, err := time.ParseDuration(cbData.Inter.Val)
+		if err != nil {
+			h.log.With("error", err).Error("parse interval")
+			h.handleSendMessageError(h.bot.Send(tgbotapi.NewMessage(cb.Message.Chat.ID, "Ошибка")))
+			return
+		}
 
-	if cbData.AnswerNum != cs.CorrectAnswer {
-		h.handleSendMessageError(h.bot.Send(tgbotapi.NewCallback(cb.ID, "Не правильный ответ")))
-	} else {
-		h.handleSendMessageError(h.bot.Send(tgbotapi.NewCallback(cb.ID, "Правильный ответ")))
+		origUser, _ := h.uc.GetUserByChatID(cb.Message.Chat.ID)
+
+		user := models.User{
+			ID:             origUser.ID,
+			ChatID:         cb.Message.Chat.ID,
+			Nickname:       cb.Message.From.UserName,
+			CreatedAt:      time.Now().UTC(),
+			NotifyInterval: interval,
+			NotifiedAt:     time.Now().UTC(),
+		}
+
+		if err := h.uc.CreateUser(user); err != nil {
+			h.log.With("error", err).Error("create user")
+			h.handleSendMessageError(h.bot.Send(tgbotapi.NewMessage(cb.Message.Chat.ID, "Ошибка")))
+			return
+		}
+
+		messageID, _ := h.cache.GetInt(fmt.Sprint(cb.Message.Chat.ID))
+		msgToDelete := tgbotapi.NewDeleteMessage(cb.Message.Chat.ID, messageID)
+
+		h.cache.Delete(fmt.Sprint(cb.Message.Chat.ID))
+		h.handleSendMessageError(h.bot.Send(msgToDelete))
+
+	case cbData.A != nil:
+		cs, err := h.uc.GetCase(cbData.A.CaseID)
+		if err != nil {
+			h.log.With("error", err).Error("get case")
+			return
+		}
+
+		if cbData.A.AnswerNum != cs.CorrectAnswer {
+			h.handleSendMessageError(h.bot.Send(tgbotapi.NewCallback(cb.ID, "Не правильный ответ")))
+		} else {
+			h.handleSendMessageError(h.bot.Send(tgbotapi.NewCallback(cb.ID, "Правильный ответ")))
+		}
 	}
 }
 
@@ -126,8 +156,7 @@ func (h *Handler) handleSendMessageError(_ tgbotapi.Message, err error) {
 
 func (h *Handler) sendQuizzes() {
 
-	ticker := time.NewTicker(20 * time.Second)
-
+	ticker := time.NewTicker(15 * time.Second)
 	for range ticker.C {
 		users, err := h.uc.GetAllUsers()
 		if err != nil {
@@ -136,6 +165,9 @@ func (h *Handler) sendQuizzes() {
 		}
 
 		for _, user := range users {
+			if time.Now().Before(user.NotifiedAt) {
+				continue
+			}
 
 			cs, err := h.uc.GetRandomCase()
 			if err != nil {
@@ -159,8 +191,10 @@ func (h *Handler) sendQuizzes() {
 				button = append(button, tgbotapi.InlineKeyboardButton{
 					Text: fmt.Sprintf("Choose %s", numbers[i]),
 					CallbackData: pointer.Of(marshalCallbackData(CallbackData{
-						AnswerNum: ans.Number,
-						CaseID:    ans.CaseID,
+						A: &Answer{
+							AnswerNum: ans.Number,
+							CaseID:    ans.CaseID,
+						},
 					})),
 				})
 
@@ -177,20 +211,28 @@ func (h *Handler) sendQuizzes() {
 			filename, err := h.uc.DownloadFile(*cs.Filename)
 			if err != nil {
 				h.log.With("error", err).Error("download file")
-				continue
 			}
 
-			photo := tgbotapi.NewPhoto(user.ChatID, tgbotapi.FilePath(filename))
-			photo.Caption = cs.Question
-			h.handleSendMessageError(h.bot.Send(photo))
+			if filename != "" {
+				photo := tgbotapi.NewPhoto(user.ChatID, tgbotapi.FilePath(filename))
+				photo.Caption = cs.Question
+				h.handleSendMessageError(h.bot.Send(photo))
+				if err := os.Remove(filename); err != nil {
+					h.log.With("error", err).Error("remove file")
+				}
+			}
 
 			messageToSend := tgbotapi.NewMessage(user.ChatID, response.String())
 			messageToSend.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(buttons...)
 			h.handleSendMessageError(h.bot.Send(messageToSend))
 
 			h.log.Info("send quizzes")
-			if err := os.Remove(filename); err != nil {
-				h.log.With("error", err).Error("remove file")
+
+			if err := h.uc.UpdateUser(models.User{
+				ID:         user.ID,
+				NotifiedAt: time.Now().UTC().Add(user.NotifyInterval),
+			}); err != nil {
+				h.log.With("error", err).Error("update user")
 			}
 		}
 	}

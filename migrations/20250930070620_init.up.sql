@@ -1,7 +1,7 @@
 -- +goose Up
 -- +goose StatementBegin
 
-CREATE TABLE cases(
+CREATE TABLE IF NOT EXISTS cases(
     id SERIAL PRIMARY KEY,
     filename VARCHAR,
     question VARCHAR NOT NULL,
@@ -9,7 +9,7 @@ CREATE TABLE cases(
     created_at TIMESTAMP DEFAULT now()
 );
 
-CREATE TABLE answers(
+CREATE TABLE IF NOT EXISTS  answers(
     id SERIAL PRIMARY KEY,
     case_id INT REFERENCES cases(id),
     answer VARCHAR NOT NULL,
@@ -17,7 +17,7 @@ CREATE TABLE answers(
 );
 
 
-CREATE TABLE users(
+CREATE TABLE  IF NOT EXISTS users(
     id SERIAL PRIMARY KEY,
     chat_id VARCHAR(50) NOT NULL,
     nickname VARCHAR,
@@ -32,5 +32,7 @@ CREATE TABLE users(
 DROP TABLE answers;
 
 DROP TABLE cases;
+
+DROP TABLE users;
 
 -- +goose StatementEnd
