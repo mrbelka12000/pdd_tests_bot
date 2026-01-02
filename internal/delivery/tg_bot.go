@@ -62,7 +62,10 @@ func Start(cfg config.Config, uc *usecase.UseCase, log *slog.Logger, cache cache
 
 func (h *Handler) handleUpdate() {
 	for update := range h.ch {
+		msg := update.Message
 
+		h.handleSendMessageError(h.bot.Send(tgbotapi.NewMessage(msg.Chat.ID, "Бот не работает, извините")))
+		continue
 		if update.CallbackQuery != nil {
 			h.handleCallbacks(update.CallbackQuery)
 			continue
@@ -71,8 +74,6 @@ func (h *Handler) handleUpdate() {
 		if update.Message == nil {
 			continue
 		}
-
-		msg := update.Message
 
 		switch msg.Command() {
 		case "start":
